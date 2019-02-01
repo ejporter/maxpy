@@ -37,10 +37,10 @@ while ' ' in design:
     print('Invalid Name!')
     design = input("What is your design name:  ")
 
-mode = input("What mode of Maxwell are you using (Magnetostatic or Electrostatic):  ")
-while mode not in ['Magnetostatic', 'Electrostatic']:
+mode = input("What mode of Maxwell are you using (e.g. Magnetostatic or Electrostatic):  ")
+while mode not in ['Magnetostatic', 'Electrostatic', 'EddyCurrent', 'Transient', 'DCConduction', 'ElectricTransient']:
     print('Invalid Mode!')
-    mode = input("What mode of Maxwell are you using (Magnetostatic or Electrostatic):  ")
+    mode = input("What mode of Maxwell are you using (e.g. Magnetostatic or Electrostatic):  ")
 
 
 with open(write_to, 'w') as sf:  # creates new script file
@@ -50,12 +50,12 @@ with open(write_to, 'w') as sf:  # creates new script file
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     td = str(t.datetime.now())
-    time = td[td.index(' ')+1:td.index('.')]
-    date = td[:td.index(' ')]
+    time = td[td.index(' ')+1 : td.index('.')]
+    date = td[ : td.index(' ')]
     sf.write('''# ----------------------------------------------\n''')
-    sf.write('''# Script Written by maxwell_scripter.py Version 1.0 \n''')
+    sf.write('''# Script written by maxwell_scripter.py Version 1.0 \n''')
     sf.write('''# ''' + time + ' ' + date + '''\n''')
-    sf.write('''# ----------------------------------------------\n''')
+    sf.write('''# ----------------------------------------------\n\n''')
 
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
