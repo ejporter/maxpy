@@ -24,7 +24,7 @@ class Maxwell():
 
         # other classes for handling the actual writing
         self.initializer = MaxInit(self.fileName)
-        self.sim = MaxSim()
+        self.sim = MaxSim(self.fileName)
         self.geometry = MaxGeo(self.fileName)
         self.setup = MaxSetup(self.fileName)
         self.firstLines()
@@ -96,6 +96,9 @@ class Maxwell():
         self.setup.initialThicken(self.signals, self.geometry)
         self.setup.position(self.signals, self.geometry)
         self.setup.initialAssign(self.signals, self.geometry)
+
+    def simulate(self, name = 'Setup1', maxPasses=15, error=1, minPasses=2, percentRefinement=30, SolveMatrixAtLast=True, UseIterativeSolve=False, RelativeResidual = 1E-06, NonLinearResidual = 0.001):
+        self.sim.setup(name, self.mode, maxPasses, error, minPasses, percentRefinement=30, SolveMatrixAtLast=True, UseIterativeSolve=False, RelativeResidual = 1E-06, NonLinearResidual = 0.001)
     
 
 
@@ -365,7 +368,26 @@ class MaxGeo():
 class MaxSim():
 
 
-    def __init__(self):
-        pass 
+    def __init__(self, fileName):
+        self.fileName = fileName
 
+    def setup(self, name, mode, maxPasses, error, minPasses, percentRefinement, SolveMatrixAtLast, UseIterativeSolve, RelativeResidual, NonLinearResidual):
+        with open(self.fileName, 'a') as script:
+            script.write('oModule = oDesign.GetModule("AnalysisSetup")\n')
+            script.write('''oModule.InsertSetup("''' + mode +'''", 
+	[
+		"NAME:''' + name + '''",
+		"Enabled:="		, True,
+		"MaximumPasses:="	, ''' + str(maxPasses)  + ''',
+		"MinimumPasses:="	, ''' + str(minPasses)+''',
+		"MinimumConvergedPasses:=", 1,
+		"PercentRefinement:="	, '''+str(percentRefinement)+''',
+		"SolveFieldOnly:="	, False,
+		"PercentError:="	, '''+str(error)+''',
+		"SolveMatrixAtLast:="	, ''' + str(SolveMatrixAtLast)+''',
+		"PercentError:="	, '''+str(error)+''',
+		"UseIterativeSolver:="	, '''+str(UseIterativeSolve)+''',
+		"RelativeResidual:="	, '''+str(RelativeResidual)+''',
+		"NonLinearResidual:="	, ''' + str(NonLinearResidual) +'''
+	])\n''')
 
