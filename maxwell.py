@@ -17,13 +17,15 @@ import os
 
 class Maxwell():
 
-    def __init__(self, fileName):
+    def __init__(self, fileName, clear=False, projects = ['Project1'], designs = []):
         self.gds = None
         self.mode = "Magnetostatic"
         self.fileName = fileName + '.py'
-
+        if clear:
+            open(self.fileName, 'w').close()  # clears file 
+    
         # other classes for handling the actual writing
-        self.initializer = MaxInit(self.fileName)
+        self.initializer = MaxInit(self.fileName, projects, designs)
         self.sim = MaxSim(self.fileName)
         self.geometry = MaxGeo(self.fileName)
         self.setup = MaxSetup(self.fileName)
@@ -40,7 +42,7 @@ class Maxwell():
 
 
     def setGDS(self, fileName):
-        self.gds = fileName + '.gds'
+        self.gds = os.getcwd() + '\\' + fileName + '.gds'
 
     def setFile(self, fileName):
         self.fileName = fileName + '.py'
@@ -54,20 +56,25 @@ class Maxwell():
         self.initializer.initial_text()
 
     def setProject(self, projectName):
-        self.initializer.renameProject(projectName)
+        if projectName in self.initializer.projects:
+            self.initializer.setProject(projectName)
+        else:
+            self.initializer.insertProject(projectName)
 
 
-    def insertDesign(self, designName):
-        self.initializer.openDesign(designName, mode=self.mode)
+    def delProject(self, project):
+        self.initializer.deleteProject(project)
+
 
     def setDesign(self, designName):
-        if self.initializer.designName is None:
-            self.initializer.openDesign(designName, mode=self.mode)
-        else:
+        if designName in self.initializer.designs:
             self.initializer.setDesign(designName)
+        else:
+            self.initializer.insertDesign(designName, self.mode)
 
     def importGDS(self, importgds=None):
-        importgds = self.gds
+        if importgds is None:
+            importgds = self.gds
         assert importgds is not None, 'No GDS file specified'
         self.setup.importGDS(importgds)
 
@@ -116,9 +123,9 @@ class Maxwell():
 
 class MaxInit():
 
-    def __init__(self, fileName):
-        self.projectName = "Project1"
-        self.designName = None
+    def __init__(self, fileName, projects, designs):
+        self.projects = projects
+        self.designs = designs
         self.mode = "Magnetostatic"  """ options are:
                                 Magnetostatic, Electrostatic, EddyCurrent,
                                 Transient, DCConduction, ElectricTransient"""
@@ -147,22 +154,35 @@ class MaxInit():
             script.write('import ScriptEnv\n')
             script.write('ScriptEnv.Initialize("Ansoft.ElectronicsDesktop")\n')
             script.write('oDesktop.RestoreWindow()\n')
-            script.write('oProject = oDesktop.SetActiveProject("Project1")\n')
 
-    def renameProject(self, projectName):
-        self.projectName = projectName
+
+
+    def setProject(self, projectName):
+        self.projects.append(projectName)
         with open(self.fileName, 'a') as script:
-            script.write('oProject.Rename("' + os.getcwd().replace('\\', '\\\\') + '\\\\' + self.projectName + '.aedt", True)\n')  
+            script.write('oProject = oDesktop.SetActiveProject("'+projectName+'")\n')  
 
-    def openDesign(self, designName, mode):
-        self.designName = designName
+    def insertProject(self, projectName):
+        self.projects.append(projectName)
+        with open(self.fileName, 'a') as script:
+            script.write('oProject = oDesktop.NewProject()\n')
+            script.write('oProject.Rename("' + os.getcwd().replace('\\', '\\\\') + '\\\\' + projectName + '.aedt", True)\n')  
+
+    def deleteProject(self, projectName):
+        if projectName in self.projects:
+            self.projects.remove(projectName)
+            with open(self.fileName, 'a') as script:
+                script.write('oDesktop.CloseProject("'+projectName+'")\n')
+
+
+    def insertDesign(self, designName, mode):
+        self.designs.append(designName)
         with open(self.fileName, 'a') as script:
             script.write('oProject.InsertDesign("Maxwell 3D", "'+ designName + '", "' + mode + '", "")\n')
             script.write('oDesign = oProject.SetActiveDesign("' + designName + '")\n')
             script.write('oEditor = oDesign.SetActiveEditor("3D Modeler")\n')
 
     def setDesign(self, designName):
-        self.designName = designName
         with open(self.fileName, 'a') as script:
             script.write('oDesign = oProject.SetActiveDesign("' + designName + '")\n')
             script.write('oEditor = oDesign.SetActiveEditor("3D Modeler")\n')
