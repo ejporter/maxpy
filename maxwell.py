@@ -108,8 +108,21 @@ class Maxwell():
         self.sim.setup(name, self.mode, maxPasses, error, minPasses, percentRefinement=30, SolveMatrixAtLast=True, UseIterativeSolve=False, RelativeResidual = 1E-06, NonLinearResidual = 0.001)
     
 
+    def unite(self, signals):
+        self.geometry.unite(signals)
 
+    def box(self, pos, size, material='vacuum'):
+        self.geometry.box(pos,size,material)
 
+    def region(self, lengths, material='vacuum'):
+        self.geometry.region(lengths, material)
+
+    def conductionPath(self, name1, name2, cur, inFace, outFace):
+        self.geometry.current(name1, cur, inFace, True)
+        self.geometry.current(name2, cur, outFace, False)
+
+    def insulate(self, name, signal):
+        self.geometry.insulate(name, signal)
 
 
 #====================================================================================================================
@@ -181,11 +194,13 @@ class MaxInit():
             script.write('oProject.InsertDesign("Maxwell 3D", "'+ designName + '", "' + mode + '", "")\n')
             script.write('oDesign = oProject.SetActiveDesign("' + designName + '")\n')
             script.write('oEditor = oDesign.SetActiveEditor("3D Modeler")\n')
+            script.write('oModule = oDesign.GetModule("BoundarySetup")\n')
 
     def setDesign(self, designName):
         with open(self.fileName, 'a') as script:
             script.write('oDesign = oProject.SetActiveDesign("' + designName + '")\n')
             script.write('oEditor = oDesign.SetActiveEditor("3D Modeler")\n')
+            script.write('oModule = oDesign.GetModule("BoundarySetup")\n')
 
 
    
@@ -370,6 +385,105 @@ class MaxGeo():
                 "IsLightweight:="	, False
             ])\n''')
 
+    def unite(self, signals):
+        with open(self.fileName, 'a') as script:
+            script.write('''oEditor.Unite(
+	        [
+		        "NAME:Selections",
+		        "Selections:="		, "''' + ','.join(signals) + '''"
+            ], 
+            [
+                "NAME:UniteParameters",
+                "KeepOriginals:="	, False
+            ])
+            \n''')
+
+    def box(self,pos, size, name, material):
+        with open(self.fileName, 'a') as script:
+            script.write('''oEditor.CreateBox(
+            [
+                "NAME:BoxParameters",
+                "XPosition:="		, "''' + pos[0] + '''",
+                "YPosition:="		, "''' + pos[1] + '''",
+                "ZPosition:="		, "''' + pos[2] + '''",
+                "XSize:="		, "''' + size[0] + '''",
+                "YSize:="		, "''' + size[0] + '''",
+                "ZSize:="		, "''' + size[0] + '''"
+            ], 
+            [
+                "NAME:Attributes",
+                "Name:="		, "''' + name + '''",
+                "Flags:="		, "",
+                "Color:="		, "(143 175 143)",
+                "Transparency:="	, 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:="		, "",
+                "MaterialValue:="	, "''' + '\\' + '''"''' + material + '\\' + '''"",
+                "SurfaceMaterialValue:=", "\"\"",
+                "SolveInside:="		, True,
+                "IsMaterialEditable:="	, True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:="	, False
+            ])
+            \n''')
+
+    def region(self, lengths, material):
+        for i in range(len(lengths)):
+            lengths[i] = str(lengths[i])
+        
+        with open(self.fileName, 'a') as script:
+            script.write('''oEditor.CreateRegion(
+            [
+                "NAME:RegionParameters",
+                "+XPaddingType:="	, "Percentage Offset",
+                "+XPadding:="		, "'''+lengths[0] + '''",
+                "-XPaddingType:="	, "Percentage Offset",
+                "-XPadding:="		, "'''+lengths[1] + '''",
+                "+YPaddingType:="	, "Percentage Offset",
+                "+YPadding:="		, "'''+lengths[2] + '''",
+                "-YPaddingType:="	, "Percentage Offset",
+                "-YPadding:="		, "'''+lengths[3] + '''",
+                "+ZPaddingType:="	, "Percentage Offset",
+                "+ZPadding:="		, "'''+lengths[4] + '''",
+                "-ZPaddingType:="	, "Percentage Offset",
+                "-ZPadding:="		, "'''+lengths[5] + '''"
+            ], 
+            [
+                "NAME:Attributes",
+                "Name:="		, "Region",
+                "Flags:="		, "Wireframe#",
+                "Color:="		, "(143 175 143)",
+                "Transparency:="	, 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:="		, "",
+                "MaterialValue:="	, "''' + '\\' + '''"''' + str(material) + '\\' + '''"",
+                "SurfaceMaterialValue:=", "''' + '\\' + '"' + '\\' + '''"",
+                "SolveInside:="		, True,
+                "IsMaterialEditable:="	, True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:="	, False
+            ])\n''')
+
+    def current(self, name, cur, face, out):
+         with open(self.fileName, 'a') as script:
+            script.write('''oModule = oDesign.GetModule("BoundarySetup")''')
+            script.write('''oModule.AssignCurrent(
+                [
+                    "NAME:'''+name+'''",
+                    "Faces:="		, ['''+str(face)+'''],
+                    "Current:="		, "'''+str(cur)+'''",
+                    "IsSolid:="		, True,
+                    "Point out of terminal:=", '''+str(out)+'''
+                ])
+            \n''')
+
+    def insulate(self, body, name):
+        with open(self.fileName, 'a') as script:
+            script.write('''oModule.AssignInsulating(
+            [
+                "NAME:'''+name+'''",
+                "Objects:="		, ["'''+str(body)+'''"]
+            ])\n''')
 
 
 
