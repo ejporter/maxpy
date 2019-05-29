@@ -91,7 +91,7 @@ class Maxwell():
 
     def addLayerInfo(self, info):  # format: list of tuples in form (layer (int), height (str), thickness (str))
         for layer, height, thickness in info:
-            self.layerGuide[layer] = (height, thickness)
+            self.setup.layerGuide[layer] = (height, thickness)
 
     
     def prepare(self):
@@ -111,8 +111,8 @@ class Maxwell():
     def unite(self, signals):
         self.geometry.unite(signals)
 
-    def box(self, pos, size, material='vacuum'):
-        self.geometry.box(pos,size,material)
+    def box(self, pos, size, name, material='vacuum'):
+        self.geometry.box(pos, size, name, material)
 
     def region(self, lengths, material='vacuum'):
         self.geometry.region(lengths, material)
@@ -297,6 +297,33 @@ class MaxSetup():
                 "TranslateVectorZ:="	,  str(-1*float(bound_box[2])) + 'mm'
             ])   \n''')
 
+            script.write('''oEditor.CreateBox(
+            [
+                "NAME:BoxParameters",
+                "XPosition:="		, "0",
+                "YPosition:="		, "0",
+                "ZPosition:="		, "0",
+                "XSize:="		,  str(float(bound_box[3])-float(bound_box[0])) + 'mm' ,
+                "YSize:="		,  str(float(bound_box[4])-float(bound_box[1])) + 'mm',
+                "ZSize:="		, "-350um"
+            ], 
+            [
+                "NAME:Attributes",
+                "Name:="		, "substrate",
+                "Flags:="		, "",
+                "Color:="		, "(143 175 143)",
+                "Transparency:="	, 0,
+                "PartCoordinateSystem:=", "Global",
+                "UDMId:="		, "",
+                "MaterialValue:="	, "''' + '\\' + '''"''' + 'silicon' + '\\' + '''"",
+                "SurfaceMaterialValue:=", "\\"\\"",
+                "SolveInside:="		, True,
+                "IsMaterialEditable:="	, True,
+                "UseMaterialAppearance:=", False,
+                "IsLightweight:="	, False
+            ])
+            \n''')
+
     def position(self, signals, geohandler):
         for layer in signals:
             geohandler.move(signals[layer], ['0','0', self.layerGuide[layer][0]])
@@ -399,16 +426,17 @@ class MaxGeo():
             \n''')
 
     def box(self,pos, size, name, material):
+        
         with open(self.fileName, 'a') as script:
             script.write('''oEditor.CreateBox(
             [
                 "NAME:BoxParameters",
-                "XPosition:="		, "''' + pos[0] + '''",
-                "YPosition:="		, "''' + pos[1] + '''",
-                "ZPosition:="		, "''' + pos[2] + '''",
-                "XSize:="		, "''' + size[0] + '''",
-                "YSize:="		, "''' + size[0] + '''",
-                "ZSize:="		, "''' + size[0] + '''"
+                "XPosition:="		, "''' + str(pos[0]) + '''",
+                "YPosition:="		, "''' + str(pos[1]) + '''",
+                "ZPosition:="		, "''' + str(pos[2]) + '''",
+                "XSize:="		, "''' + str(size[0]) + '''",
+                "YSize:="		, "''' + str(size[1]) + '''",
+                "ZSize:="		, "''' + str(size[2]) + '''"
             ], 
             [
                 "NAME:Attributes",
@@ -418,8 +446,8 @@ class MaxGeo():
                 "Transparency:="	, 0,
                 "PartCoordinateSystem:=", "Global",
                 "UDMId:="		, "",
-                "MaterialValue:="	, "''' + '\\' + '''"''' + material + '\\' + '''"",
-                "SurfaceMaterialValue:=", "\"\"",
+                "MaterialValue:="	, "''' + '\\' + '''"''' +material + '\\' + '''"",
+                "SurfaceMaterialValue:=", "\\"\\"",
                 "SolveInside:="		, True,
                 "IsMaterialEditable:="	, True,
                 "UseMaterialAppearance:=", False,
@@ -453,7 +481,7 @@ class MaxGeo():
                 "Name:="		, "Region",
                 "Flags:="		, "Wireframe#",
                 "Color:="		, "(143 175 143)",
-                "Transparency:="	, 0,
+                "Transparency:="	, 1,
                 "PartCoordinateSystem:=", "Global",
                 "UDMId:="		, "",
                 "MaterialValue:="	, "''' + '\\' + '''"''' + str(material) + '\\' + '''"",
