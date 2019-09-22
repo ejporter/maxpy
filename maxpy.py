@@ -3,32 +3,19 @@ import os
 
 
 
-
-
-
-
-#====================================================================================================================
-"""
-    Master class for handling all of the other classes so that it is able to create a more modular 
-    environment. Will contain the lower level classes and write to the text file as needed.
-"""   
-#-------------------------------------------------------------------------------------------------------------------
-
-
 class Maxwell():
 
     def __init__(self, fileName, project, design, gds, clear=False, mode = 'Electrostatic'):
-        self.gds = gds
-        self.mode = mode
-        self.fileName = fileName
-        self.project = project
-        self.design = design
-        self.signals = None
-        self.signalCount = 1
+        self.gds = gds  # name of gds file to import
+        self.mode = mode  # mode for maxwell simulation, defaults to 'Electrostatic' for capacitance measurements
+        self.fileName = fileName  # file to write script to
+        self.project = project  # name of project
+        self.design = design  # name of design
+        self.signalCount = 1  # counter for signal naming
         self.signals = {}  # dict going from layer to all signals in that layer
-        self.allSignals = []  # list for convenience
+        self.allSignals = []  # list for convenience of every signal
         self.layerGuide={ 
-                        5: ('0', '250nm'), #format~ layer: (height, thickness)
+                        5: ('0', '250nm'), #format~ layer: (height, thickness), follows LL standards
                         18: ('0', '250nm'), 
                         11: ('250nm', '250nm'),
                         30: ('250nm', '1.6um'), 
@@ -41,14 +28,21 @@ class Maxwell():
         
 
     def initialize(self):
+        """
+        writes the header of the written script
+        info for what and when it was written
+        also initial imports and object creation that maxwell uses
+        """
         with open(self.fileName, 'a') as script:
             td = str(t.datetime.now())  # gets current time info
             time = td[td.index(' ')+1 : td.index('.')]  # picks out the current time
             date = td[ : td.index(' ')]  # picks out the current data
-            script.write('''
+
+            # necessary imports and header prints
+            script.write(f'''
             # ----------------------------------------------
-            # Script written by maxpy Version 2.0
-            # ''' + time + ' ' + date + '''
+            # Script written by maxpy Version 1.3
+            # {time} {date}
             # ----------------------------------------------\n\n''')
             script.write('import ScriptEnv\n')
             script.write('ScriptEnv.Initialize("Ansoft.ElectronicsDesktop")\n')
@@ -60,7 +54,11 @@ class Maxwell():
             script.write('oEditor = oDesign.SetActiveEditor("3D Modeler")\n')
             
 
-    def add_layers(self, layerDict):
+    def addLayers(self, layerDict):
+        """
+        tells maxwell whichi layers from the input you would like to import
+        layerDict - dictionary of form {layer: elements} where elements is the number of discrete elements in each layer
+        """
         for layer in layerDict:
             for signal in range(layerDict[layer]):
                 self.allSignals.append(f'Signal{str(layer)}_{str(self.signalCount)}')
@@ -70,7 +68,13 @@ class Maxwell():
                     self.signals[layer] = [f'Signal{str(layer)}_{str(self.signalCount)}']
                 self.signalCount += 1
 
-    def addLayerInfo(self, info):  # format: list of tuples in form (layer (int), height (str), thickness (str))
+    def addLayerInfo(self, info):
+        """
+        used for adding information to the layer guide for layers that may not be standard
+        info - list of new layers to add in format: (layer (int), height (str), thickness (str))
+        """ 
+        if type(info) == tuple:
+            info = [info]
         for layer, height, thickness in info:
             self.layerGuide[layer] = (height, thickness)
 
@@ -119,7 +123,7 @@ class Maxwell():
         with open(self.fileName, 'a') as script:
             script.write('oEditor.ImportGDSII(\n      ' + importInfo + ')\n')
 
-
+        # move the model to the origin, thickens, assigns materials, and moves to correct height
         self.zero()
         for layer in self.signals:
             self.thicken(self.signals[layer], self.layerGuide[layer][1])
@@ -130,7 +134,7 @@ class Maxwell():
 
     def zero(self):
         """
-        moves the model to the origin if it is not already
+        moves the model to the origin
         """
         
         with open(self.fileName, 'a') as script:
@@ -214,6 +218,9 @@ class Maxwell():
 
 
     def assignMaterial(self, signals, material):
+        """
+        assigns material to every signal in list signals
+        """
         with open(self.fileName, 'a') as script:
             script.write(f'''oEditor.AssignMaterial(
             [
@@ -233,6 +240,9 @@ class Maxwell():
 
 
     def unite(self, signals):
+        """
+        unites every element in signals
+        """
         with open(self.fileName, 'a') as script:
             script.write(f'''oEditor.Unite(
 	        [
@@ -246,6 +256,9 @@ class Maxwell():
             \n''')
 
     def voltage(self, v, signal, name ):
+        """ 
+        assigns voltage to signal with name for excitations
+        """
         with open(self.fileName, 'a') as script:
             script.write('oModule = oDesign.GetModule("BoundarySetup")\n')
             script.write(f'''oModule.AssignVoltage(
@@ -258,6 +271,9 @@ class Maxwell():
             \n''') 
 
     def rename(self, signal, name):
+        """
+        renames one signal with given name
+        """
         with open(self.fileName, 'a') as script:
             script.write(f'''oEditor.ChangeProperty(
 	        [
@@ -280,6 +296,10 @@ class Maxwell():
             \n''')
 
     def problemRegion(self, height=300):
+        """
+        makes a problem region with the given height, defaults ot 300
+        """
+
         with open(self.fileName, 'a') as script:
             script.write(f'''oEditor.CreateRegion(
 	[
@@ -316,6 +336,9 @@ class Maxwell():
 
     
     def matrix(self, excitations, name):
+        """
+        given a list of excitation names we would like to include, set up the capacitance matrix simulation, naming the matrix with name
+        """
         entries = ''
         for each in excitations:
             entries += f'''              [
@@ -340,6 +363,9 @@ class Maxwell():
             \n''')
     
     def setup(self, name, minPass=2, maxPass=15, error=2):
+        """
+        does the setup so we can analyze the file
+        """
         with open(self.fileName, 'a') as script:
             script.write('oModule = oDesign.GetModule("AnalysisSetup")\n')
             script.write(f'''oModule.InsertSetup("{self.mode}",
@@ -397,205 +423,5 @@ class maxParse():
             self.capacitance[excitations[index]] = newcap
             self.coupling[excitations[index]] = newcoup
 
-        
-            
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-       
-
-
-   
-
-
     
-
-
-#     def simulate(self, name = 'Setup1', maxPasses=15, error=1, minPasses=2, percentRefinement=30, SolveMatrixAtLast=True, UseIterativeSolve=False, RelativeResidual = 1E-06, NonLinearResidual = 0.001):
-#         self.sim.setup(name, self.mode, maxPasses, error, minPasses, percentRefinement=30, SolveMatrixAtLast=True, UseIterativeSolve=False, RelativeResidual = 1E-06, NonLinearResidual = 0.001)
-    
-
-#     def unite(self, signals):
-#         self.geometry.unite(signals)
-
-#     def box(self, pos, size, name, material='vacuum'):
-#         self.geometry.box(pos, size, name, material)
-
-#     def region(self, lengths, material='vacuum'):
-#         self.geometry.region(lengths, material)
-
-
-
-
-
-
-# #====================================================================================================================
-# """
-#     This class has the primary goal of handling all of the geometric needs for a maxwell script
-#     It handles things such as moving object, drawing new objects, assigning excitations and 
-#     boundary conditions, etc. Most of it will be based off of coordinate position, but it should
-#     have basic knowledge of element name so that it will be able to refer to things via name.
-# """   
-# #------------------------------------------------------------------------------------------------------------------
-
-
-# class MaxGeo():
-
-#     def __init__(self, fileName):
-
-#     def unite(self, signals):
-#         with open(self.fileName, 'a') as script:
-#             script.write('''oEditor.Unite(
-# 	        [
-# 		        "NAME:Selections",
-# 		        "Selections:="		, "''' + ','.join(signals) + '''"
-#             ], 
-#             [
-#                 "NAME:UniteParameters",
-#                 "KeepOriginals:="	, False
-#             ])
-#             \n''')
-
-#     def box(self,pos, size, name, material):
-        
-#         with open(self.fileName, 'a') as script:
-#             script.write('''oEditor.CreateBox(
-#             [
-#                 "NAME:BoxParameters",
-#                 "XPosition:="		, "''' + str(pos[0]) + '''",
-#                 "YPosition:="		, "''' + str(pos[1]) + '''",
-#                 "ZPosition:="		, "''' + str(pos[2]) + '''",
-#                 "XSize:="		, "''' + str(size[0]) + '''",
-#                 "YSize:="		, "''' + str(size[1]) + '''",
-#                 "ZSize:="		, "''' + str(size[2]) + '''"
-#             ], 
-#             [
-#                 "NAME:Attributes",
-#                 "Name:="		, "''' + name + '''",
-#                 "Flags:="		, "",
-#                 "Color:="		, "(143 175 143)",
-#                 "Transparency:="	, 0,
-#                 "PartCoordinateSystem:=", "Global",
-#                 "UDMId:="		, "",
-#                 "MaterialValue:="	, "''' + '\\' + '''"''' +material + '\\' + '''"",
-#                 "SurfaceMaterialValue:=", "\\"\\"",
-#                 "SolveInside:="		, True,
-#                 "IsMaterialEditable:="	, True,
-#                 "UseMaterialAppearance:=", False,
-#                 "IsLightweight:="	, False
-#             ])
-#             \n''')
-
-#     def region(self, lengths, material):
-#         for i in range(len(lengths)):
-#             lengths[i] = str(lengths[i])
-        
-#         with open(self.fileName, 'a') as script:
-#             script.write('''oEditor.CreateRegion(
-#             [
-#                 "NAME:RegionParameters",
-#                 "+XPaddingType:="	, "Percentage Offset",
-#                 "+XPadding:="		, "'''+lengths[0] + '''",
-#                 "-XPaddingType:="	, "Percentage Offset",
-#                 "-XPadding:="		, "'''+lengths[1] + '''",
-#                 "+YPaddingType:="	, "Percentage Offset",
-#                 "+YPadding:="		, "'''+lengths[2] + '''",
-#                 "-YPaddingType:="	, "Percentage Offset",
-#                 "-YPadding:="		, "'''+lengths[3] + '''",
-#                 "+ZPaddingType:="	, "Percentage Offset",
-#                 "+ZPadding:="		, "'''+lengths[4] + '''",
-#                 "-ZPaddingType:="	, "Percentage Offset",
-#                 "-ZPadding:="		, "'''+lengths[5] + '''"
-#             ], 
-#             [
-#                 "NAME:Attributes",
-#                 "Name:="		, "Region",
-#                 "Flags:="		, "Wireframe#",
-#                 "Color:="		, "(143 175 143)",
-#                 "Transparency:="	, 1,
-#                 "PartCoordinateSystem:=", "Global",
-#                 "UDMId:="		, "",
-#                 "MaterialValue:="	, "''' + '\\' + '''"''' + str(material) + '\\' + '''"",
-#                 "SurfaceMaterialValue:=", "''' + '\\' + '"' + '\\' + '''"",
-#                 "SolveInside:="		, True,
-#                 "IsMaterialEditable:="	, True,
-#                 "UseMaterialAppearance:=", False,
-#                 "IsLightweight:="	, False
-#             ])\n''')
-
-#     def current(self, name, cur, face, out):
-#          with open(self.fileName, 'a') as script:
-#             script.write('''oModule = oDesign.GetModule("BoundarySetup")''')
-#             script.write('''oModule.AssignCurrent(
-#                 [
-#                     "NAME:'''+name+'''",
-#                     "Faces:="		, ['''+str(face)+'''],
-#                     "Current:="		, "'''+str(cur)+'''",
-#                     "IsSolid:="		, True,
-#                     "Point out of terminal:=", '''+str(out)+'''
-#                 ])
-#             \n''')
-
-#     def insulate(self, body, name):
-#         with open(self.fileName, 'a') as script:
-#             script.write('''oModule.AssignInsulating(
-#             [
-#                 "NAME:'''+name+'''",
-#                 "Objects:="		, ["'''+str(body)+'''"]
-#             ])\n''')
-
-
-
-        
-        
-
-
-
-# #====================================================================================================================
-# """
-#     The primary purpose of this class is to setup the simulation for maxwell and potentially
-#     run the file to get results as well. 
-# """   
-# #-------------------------------------------------------------------------------------------------------------------
-
-# class MaxSim():
-
-
-#     def __init__(self, fileName):
-#         self.fileName = fileName
-
-#     def setup(self, name, mode, maxPasses, error, minPasses, percentRefinement, SolveMatrixAtLast, UseIterativeSolve, RelativeResidual, NonLinearResidual):
-#         with open(self.fileName, 'a') as script:
-#             script.write('oModule = oDesign.GetModule("AnalysisSetup")\n')
-#             script.write('''oModule.InsertSetup("''' + mode +'''", 
-# 	[
-# 		"NAME:''' + name + '''",
-# 		"Enabled:="		, True,
-# 		"MaximumPasses:="	, ''' + str(maxPasses)  + ''',
-# 		"MinimumPasses:="	, ''' + str(minPasses)+''',
-# 		"MinimumConvergedPasses:=", 1,
-# 		"PercentRefinement:="	, '''+str(percentRefinement)+''',
-# 		"SolveFieldOnly:="	, False,
-# 		"PercentError:="	, '''+str(error)+''',
-# 		"SolveMatrixAtLast:="	, ''' + str(SolveMatrixAtLast)+''',
-# 		"PercentError:="	, '''+str(error)+''',
-# 		"UseIterativeSolver:="	, '''+str(UseIterativeSolve)+''',
-# 		"RelativeResidual:="	, '''+str(RelativeResidual)+''',
-# 		"NonLinearResidual:="	, ''' + str(NonLinearResidual) +'''
-# 	])\n''')
 
